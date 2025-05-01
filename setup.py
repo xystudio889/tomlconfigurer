@@ -5,23 +5,27 @@ setup(
     version="0.1.0.dev0",
     package_dir={"": "src"},
     packages=find_packages(where="src"),
-    install_requires=["toml"],
-    python_requires=">=3.7",
+    install_requires=[],
+    python_requires=">=3.6",
     author="xystudio",
     author_email="173288240@qq.com",
     description="A configurer with toml.",
-    long_description=open("README-PYPI.md", encoding="utf-8").read(),
+    long_description=open("README.md", encoding="utf-8").read(),
     long_description_content_type="text/markdown",
+    license="MIT",
     url="https://github.com/xystudio889/tomlconfigurer",
-    entry_points={
-            "tomlconfigurer = configurer:main",
+    include_package_data=True,
+    entry_points={"console_scripts": [
+        "backup = backup:main"
+    ]
+    },
+    extras_require={
+        "dev": []
     },
     classifiers=[
         "Programming Language :: Python :: 3",
         "License :: OSI Approved :: MIT License",
         "Operating System :: OS Independent",
-    ],
-    extras_require={
-        "dev": []
-    },
+    ], 
+    keywords = ["config", "toml", "configure", "configurer"]
 )
