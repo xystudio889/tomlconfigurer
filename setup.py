@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name="tomlconfigurer",
-    version="0.1.0.dev0",
+    version="0.1.0",
     package_dir={"": "src"},
     packages=find_packages(where="src"),
     install_requires=[],
@@ -16,7 +16,7 @@ setup(
     url="https://github.com/xystudio889/tomlconfigurer",
     include_package_data=True,
     entry_points={"console_scripts": [
-        "backup = backup:main"
+        "tomlconfigurer = configurer:main"
     ]
     },
     extras_require={
