@@ -2,10 +2,10 @@ from setuptools import setup, find_packages
 
 setup(
     name="tomlconfigurer",
-    version="0.2.0",
+    version="0.2.1",
     package_dir={"": "src"},
     packages=find_packages(where="src"),
-    install_requires=[],
+    install_requires=["toml>=0.10"],
     python_requires=">=3.6",
     author="xystudio",
     author_email="173288240@qq.com",
