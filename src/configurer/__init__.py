@@ -1,202 +1,188 @@
 from typing_extensions import Literal, Any, Union, Dict
-from toml import load, dump
-from os import makedirs
+from toml import load, dump, TomlDecodeError
 from pathlib import Path
 
 __version__ = "0.2.1"
-__all__ = ["config", "get_config", "remove_config", "init", "initsettings",
-           "LOCAL", "GLOBAL", "ALL", "HOME", "CWD"
-        ]
+__all__ = [
+    "config",
+    "get_config",
+    "remove_config",
+    "init",
+    "initsettings",
+    "LOCAL",
+    "GLOBAL",
+    "ALL",
+    "HOME",
+    "CWD",
+]
 
-initsettings = {}
-
+# Const variables
 LOCAL = "local"
 GLOBAL = "global"
 ALL = "all"
-
 HOME = Path.home()
 CWD = Path.cwd()
 
-def init(**kwargs):
-    global initsettings
+initsettings = {}
 
+
+def init(**kwargs):
+    """Init configurer settings."""
+    global initsettings
     initsettings.update(kwargs)
 
-def config(
-    config_name: str,
-    value: Any,
-    config_type: Literal["local", "global"]=initsettings.get("default_config_type", LOCAL)
-):
-    local_config_path = initsettings.get("local_config_path", Path.home() / "appdata" / "Roaming" / "xystudio" / "configurer" / "config.toml")
-    global_config_path = initsettings.get("global_config_path", Path.cwd() / ".xystudio" / "configurer" / "config.toml")
 
-    create_config_file()
+# Private functions
+def _get_config_path(config_type: str) -> Path:
+    """Get config file path."""
+    config_type = config_type.lower()
+    default_paths = {
+        GLOBAL: HOME / ".xystudio" / "configurer" / "config.toml",
+        LOCAL: CWD / ".xystudio" / "configurer" / "config.toml",
+    }
+    return Path(
+        initsettings.get(f"{config_type}_config_path", default_paths[config_type])
+    )
 
-    if initsettings.get("must_two_texts", False):
-        config_split = config_name.split(".", 1)
-        config_char_1 = config_split[0]
-        try:
-            config_char_2 = config_split[1]
-        except IndexError:
-            raise ValueError("config name must with two texts, example : 'a.b'.")
-        if config_type == LOCAL:
-            with open(local_config_path, "r", encoding="utf-8") as f:
-                config = load(f)
-                config.update({config_char_1 : {config_char_2 : value}})
-            with open(local_config_path, "w", encoding="utf-8") as f:
-                dump(config, f)
-        elif config_type == GLOBAL:
-            with open(global_config_path, "r", encoding="utf-8") as f:
-                config = load(f)
-                config.update({config_char_1 : {config_char_2 : value}})
-            with open(global_config_path, "w", encoding="utf-8") as f:
-                dump(config, f)
-        else:
-            raise ValueError("This config type not found.")
-    else:
-        if config_type == LOCAL:
-            with open(local_config_path, "r") as f:
-                local_config = load(f)
-            local_config[config_name] = value
-            with open(local_config_path, "w") as f:
-                dump(local_config, f)
-        elif config_type == GLOBAL:
-            with open(global_config_path, "r") as f:
-                global_config = load(f)
-            global_config[config_name] = value
-            with open(global_config_path, "w") as f:
-                dump(global_config, f)
-        else:
-            raise ValueError("Invalid config type.")
 
-def get_config(config_name:str, default: Any=None, config_type: Literal["local", "global", "all"]=LOCAL) -> Any:
-    global_config_path = Path(initsettings.get("global_config_path", Path.home() / ".xystudio" / "configurer"/ "config.toml"))
-    local_config_path = Path(initsettings.get("local_config_path", Path.cwd() / ".xystudio" / "configurer" / "config.toml"))
+def _parse_config_key(config_name: str) -> list:
+    """Parse config key name."""
+    case_sensitive = initsettings.get("Case-sensitive", True)
+    must_two = initsettings.get("must_two_texts", False)
+
+    processed = config_name if case_sensitive else config_name.lower()
+
+    parts = processed.split(".")
+
+    if must_two and len(parts) < 2:
+        raise ValueError("Config name must use 'a.b' format")
+
+    return parts
+
+
+def _read_config(path: Path) -> dict:
+    """Read config file."""
+    try:
+        with path.open("r", encoding="utf-8") as f:
+            return load(f) or {}
+    except (FileNotFoundError, TomlDecodeError):
+        return {}
+
+
+def _write_config(path: Path, data: dict):
+    """Write config file."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("w", encoding="utf-8") as f:
+        dump(data, f)
+
+
+def _update_nested(config_dict: dict, keys: list, value: Any):
+    """Update nested dict."""
+    current = config_dict
+    for key in keys[:-1]:
+        current = current.setdefault(key, {})
+    current[keys[-1]] = value
+
+
+def config(config_name: str, value: Any, config_type: str = LOCAL):
+    """Config a value to config file."""
+    config_type = config_type.lower()
+    if config_type not in (LOCAL, GLOBAL):
+        raise ValueError(f"Invalid config type: {config_type}")
+
+    config_path = _get_config_path(config_type)
 
     try:
-        if initsettings.get("must_two_texts", False):
-            config_split = config_name.split(".", 1)
-            config_char_1 = config_split[0]
-            try:
-                config_char_2 = config_split[1]
-            except IndexError:
-                raise ValueError("config name must with two texts, example : 'a.b'.")
-            if config_type == LOCAL:
-                with open(local_config_path, "r") as f:
-                    local_config = load(f)
-                
-                if config_name == ALL:
-                    return local_config
-                else:
-                    if config_char_1 in local_config and config_char_2 in local_config[config_char_1]:
-                        return local_config[config_char_1][config_char_2]
-                    else:
-                        return default
-            elif config_type == GLOBAL:
-                with open(global_config_path, "r") as f:
-                    global_config = load(f)
-                
-                if config_name == ALL:
-                    return global_config
-                else:
-                    if config_char_1 in global_config and config_char_2 in global_config[config_char_1]:
-                        return global_config[config_char_1][config_char_2]
-                    else:
-                        return default
-            elif config_type == ALL:
-                with open(local_config_path, "r") as f:
-                    local_config = load(f)
-                with open(global_config_path, "r") as f:
-                    global_config = load(f)
-                union_config = {**local_config, **global_config}
-                if config_name == ALL:
-                    return union_config
-                else:
-                    if config_char_1 in union_config and config_char_2 in union_config[config_char_1]:
-                        return union_config[config_char_1][config_char_2]
-                    else:
-                        return default
-            else:
-                raise ValueError("Invalid config type.")
+        keys = _parse_config_key(config_name)
+    except ValueError as e:
+        raise ValueError(f"Invalid config name '{config_name}': {e}") from None
+
+    config_data = _read_config(config_path)
+    _update_nested(config_data, keys, value)
+    _write_config(config_path, config_data)
+
+
+def get_config(
+    config_name: str,
+    default: Any = None,
+    config_type: Literal["local", "global", "all"] = LOCAL,
+) -> Any:
+    """Get a value from config file."""
+    local_path = _get_config_path(LOCAL)
+    global_path = _get_config_path(GLOBAL)
+
+    configs = {
+        LOCAL: _read_config(local_path),
+        GLOBAL: _read_config(global_path),
+        ALL: {**_read_config(global_path), **_read_config(local_path)},
+    }
+
+    target_config = configs.get(config_type.lower())
+    if target_config is None:
+        raise ValueError(f"Invalid config type: {config_type}")
+
+    if config_name.lower() == ALL:
+        return target_config
+
+    try:
+        keys = _parse_config_key(config_name)
+    except ValueError as e:
+        raise ValueError(f"Invalid config name '{config_name}': {e}") from None
+
+    current = target_config
+    for key in keys:
+        if isinstance(current, dict):
+            current = current.get(key)
         else:
-            if config_type == LOCAL:
-                with open(local_config_path, "r") as f:
-                    local_config = load(f)
-                if config_name in local_config:
-                    return local_config[config_name]
-                else:
-                    return default
-            elif config_type == GLOBAL:
-                with open(global_config_path, "r") as f:
-                    global_config = load(f)
-                if config_name in global_config:
-                    return global_config[config_name]
-                else:
-                    return default
-            elif config_type == ALL:
-                with open(local_config_path, "r") as f:
-                    local_config = load(f)
-                with open(global_config_path, "r") as f:
-                    global_config = load(f)
-                union_config = {**local_config, **global_config}
-                if config_name in union_config:
-                    return union_config[config_name]
-                else:
-                    return default
-            else:
-                raise ValueError("Invalid config type.")
-    except FileNotFoundError:
-        return default
+            break
+    return current if current is not None else default
 
 
-def remove_config(
-    config_name: str, config_type: Literal["local", "global"] = LOCAL
-):
-    global_config_path = Path(initsettings.get("global_config_path", Path.home() / ".xystudio" / "configurer" / "config.toml"))
-    local_config_path = Path(initsettings.get("local_config_path", Path.cwd() / ".xystudio" / "configurer" / "config.toml"))
+def remove_config(config_name: str, config_type: str = LOCAL):
+    """Remove a config from config file."""
 
-    if config_type == LOCAL:
-        with open(local_config_path, "r") as f:
-            local_config = load(f)
-        if config_name in local_config:
-            del local_config[config_name]
-        with open(local_config_path, "w") as f:
-            dump(local_config, f)
-    elif config_type == GLOBAL:
-        with open(global_config_path, "r") as f:
-            global_config = load(f)
-        if config_name in global_config:
-            del global_config[config_name]
-        with open(global_config_path, "w") as f:
-            dump(global_config, f)
-    else:
-        raise ValueError("Invalid config type.")
-    
-def create_config_file():
-    global_config_path = Path(initsettings.get("global_config_path", Path.home() / ".xystudio" / "configurer" / "config.toml"))
-    local_config_path = Path(initsettings.get("local_config_path", Path.cwd() / ".xystudio" / "configurer" / "config.toml"))
- 
-    makedirs(global_config_path.parent, exist_ok=True)
-    makedirs(local_config_path.parent, exist_ok=True)
+    config_type = config_type.lower()
+    if config_type not in (LOCAL, GLOBAL):
+        raise ValueError(f"Invalid config type: {config_type}")
 
-    if not(local_config_path.exists()):
-        local_config_path.touch()
-    if not(global_config_path.exists()):
-        global_config_path.touch()
+    config_path = _get_config_path(config_type)
+
+    try:
+        keys = _parse_config_key(config_name)
+    except ValueError as e:
+        raise ValueError(f"Invalid config name '{config_name}': {e}") from None
+
+    config_data = _read_config(config_path)
+
+    current = config_data
+    for i, key in enumerate(keys):
+        if i == len(keys) - 1:
+            if key in current:
+                del current[key]
+                break
+        else:
+            current = current.get(key, {})
+
+    _write_config(config_path, config_data)
+
 
 __init__ = init
 
-def _write_init_settings():
-    with open(initsettings.get("local_config_path", Path.home() / ".xystudio" / "configurer" / "init_settings.xys"), "init_settings.xys", "w") as f:
-        dump(initsettings, f)
 
 def _read_init_settings():
     global initsettings
     try:
-        with open(initsettings.get("local_config_path", Path.home() / ".xystudio" / "configurer" / "init_settings.xys"), "r") as f:
+        with open(
+            initsettings.get(
+                "local_config_path",
+                Path.home() / ".xystudio" / "configurer" / "init_settings.xys",
+            ),
+            "r",
+        ) as f:
             initsettings = load(f)
     except FileNotFoundError:
         pass
+
 
 def main():
     import argparse
@@ -270,7 +256,9 @@ def main():
         "-a", "--all", nargs="?", action=allAction, help="Output all the config."
     )
 
-    remove_namespace = subparsers.add_parser("remove", help="Remove the config").add_subparsers(dest="remove_namespace", required=True)
+    remove_namespace = subparsers.add_parser(
+        "remove", help="Remove the config"
+    ).add_subparsers(dest="remove_namespace", required=True)
     local_config_cmd = remove_namespace.add_parser(
         "local",
         help="Config file only in your project.Local config in './.xystudio/pyplus/config.toml'",
@@ -303,7 +291,7 @@ def main():
                 print(args._local)
                 print(get_config(args._local, namespace=LOCAL))
         if hasattr(args, "_global"):
-                print(get_config(args.setting, namespace=GLOBAL))
+            print(get_config(args.setting, namespace=GLOBAL))
         else:
             print(args._global)
             print(get_config(args._global, namespace=GLOBAL))
@@ -316,6 +304,7 @@ def main():
         remove_config(args.setting, args.remove_namespace)
     elif args.config_command == "init":
         initsettings[args.setting] = args.value
+
 
 if __name__ == "__main__":
     main()

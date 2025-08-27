@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name="tomlconfigurer",
-    version="0.2.1",
+    version="0.2.2",
     package_dir={"": "src"},
     packages=find_packages(where="src"),
     install_requires=["toml>=0.10"],
@@ -15,17 +15,12 @@ setup(
     license="MIT",
     url="https://github.com/xystudio889/tomlconfigurer",
     include_package_data=True,
-    entry_points={"console_scripts": [
-        "tomlconfigurer = configurer:main"
-    ]
-    },
-    extras_require={
-        "dev": []
-    },
+    entry_points={"console_scripts": ["tomlconfigurer = configurer:main"]},
+    extras_require={"dev": []},
     classifiers=[
         "Programming Language :: Python :: 3",
         "License :: OSI Approved :: MIT License",
         "Operating System :: OS Independent",
-    ], 
-    keywords = ["config", "toml", "configure", "configurer"]
+    ],
+    keywords=["config", "toml", "configure", "configurer"],
 )
